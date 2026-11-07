@@ -1,0 +1,11 @@
+member_id,member_name,email,phone_no,doj,status
+1,Aarav Sharma,aarav.sharma@gmail.com,9822012345,2024-01-15,Active
+2,Priya Patil,priya.patil@gmail.com,9822023456,2024-02-03,Active
+3,Rohan Deshmukh,rohan.deshmukh@yahoo.com,9822034567,2024-03-10,Active
+4,Sneha Kulkarni,sneha.kulkarni@gmail.com,9822045678,2024-04-22,Active
+5,Vikram Joshi,vikram.joshi@outlook.com,9822056789,2024-05-18,Inactive
+6,Ananya Iyer,ananya.iyer@gmail.com,9822067890,2024-06-07,Active
+7,Karan Mehta,karan.mehta@yahoo.com,9822078901,2024-07-19,Active
+8,Neha Gupta,neha.gupta@gmail.com,9822089012,2024-08-25,Active
+9,Siddharth Rao,siddharth.rao@outlook.com,9822090123,2024-09-30,Inactive
+10,Isha Nair,isha.nair@gmail.com,9822001234,2025-01-12,Active

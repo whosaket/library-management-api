@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Library Management</title>
+<style>
+  :root { --navy:#1f3864; --bg:#f4f6fa; --line:#d9dee8; --ok:#1b7f3b; --warn:#b45309; --bad:#b91c1c; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: Arial, Helvetica, sans-serif; background:var(--bg); color:#1d2330; }
+  header { background:var(--navy); color:#fff; padding:16px 24px; }
+  header h1 { margin:0; font-size:20px; }
+  nav { display:flex; flex-wrap:wrap; gap:8px; padding:14px 24px; background:#fff; border-bottom:1px solid var(--line); }
+  button { font:inherit; cursor:pointer; border:1px solid var(--navy); background:#fff; color:var(--navy);
+           padding:7px 14px; border-radius:6px; }
+  button:hover { background:#e9eefa; }
+  nav button.active { background:var(--navy); color:#fff; }
+  button.primary { background:var(--navy); color:#fff; }
+  button.small { padding:3px 10px; font-size:12px; }
+  main { padding:20px 24px; max-width:1100px; margin:0 auto; }
+  h2 { margin:0 0 12px; font-size:18px; }
+  #msg { display:none; padding:10px 14px; border-radius:6px; margin-bottom:14px; font-size:14px; }
+  #msg.ok  { background:#e6f4ea; color:var(--ok); border:1px solid #b7dfc3; }
+  #msg.err { background:#fdecec; color:var(--bad); border:1px solid #f3c1c1; }
+  .toolbar { display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap; align-items:center; }
+  input, select { font:inherit; padding:7px 10px; border:1px solid var(--line); border-radius:6px; background:#fff; }
+  table { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line); }
+  th { background:var(--navy); color:#fff; text-align:left; padding:9px 10px; font-size:13px; }
+  td { padding:8px 10px; border-top:1px solid var(--line); font-size:14px; }
+  tr:nth-child(even) td { background:#fafbfd; }
+  .badge { padding:2px 8px; border-radius:10px; font-size:12px; font-weight:bold; }
+  .Returned, .Active { background:#e6f4ea; color:var(--ok); }
+  .Issued { background:#fff4d6; color:var(--warn); }
+  .Overdue, .Inactive { background:#fdecec; color:var(--bad); }
+  .card { background:#fff; border:1px solid var(--line); border-radius:8px; padding:18px; max-width:460px; }
+  .card label { display:block; margin:10px 0 4px; font-size:13px; font-weight:bold; }
+  .card select, .card input { width:100%; }
+  .muted { color:#6b7385; font-size:13px; margin:8px 0; }
+  .sub { margin-top:22px; }
+</style>
+</head>
+<body>
+<header><h1>Library Management</h1></header>
+<nav id="nav">
+  <button data-view="books" class="active">Books</button>
+  <button data-view="members">Members</button>
+  <button data-view="loans">All Loans</button>
+  <button data-view="overdue">Overdue</button>
+  <button data-view="borrow">Issue a Book</button>
+</nav>
+<main>
+  <div id="msg"></div>
+  <section id="view"></section>
+</main>
+
+<script>
+const view = document.getElementById("view");
+const msg = document.getElementById("msg");
+
+function toast(text, ok = true) {
+  msg.textContent = text;
+  msg.className = ok ? "ok" : "err";
+  msg.style.display = "block";
+  clearTimeout(toast.t);
+  toast.t = setTimeout(() => (msg.style.display = "none"), 4500);
+}
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  let data = null;
+  try { data = await res.json(); } catch (e) {}
+  if (!res.ok) throw new Error((data && (data.error || data.detail)) || "Request failed (" + res.status + ")");
+  return data;
+}
+
+function el(tag, props = {}, ...kids) {
+  const n = document.createElement(tag);
+  Object.assign(n, props);
+  kids.forEach(k => n.append(k));
+  return n;
+}
+
+// cols: [{label, get(row) -> string|Node}]
+function makeTable(cols, rows) {
+  const t = el("table");
+  t.append(el("thead", {}, el("tr", {}, ...cols.map(c => el("th", { textContent: c.label })))));
+  const body = el("tbody");
+  if (!rows.length) {
+    body.append(el("tr", {}, el("td", { colSpan: cols.length, textContent: "No records found." })));
+  }
+  rows.forEach(r => {
+    body.append(el("tr", {}, ...cols.map(c => {
+      const v = c.get(r);
+      return el("td", {}, v instanceof Node ? v : (v === null || v === undefined || v === "" ? "—" : String(v)));
+    })));
+  });
+  t.append(body);
+  return t;
+}
+
+const badge = s => el("span", { className: "badge " + (s || ""), textContent: s || "—" });
+
+function setView(name) {
+  document.querySelectorAll("#nav button").forEach(b => b.classList.toggle("active", b.dataset.view === name));
+  view.replaceChildren(el("p", { className: "muted", textContent: "Loading..." }));
+  const fn = { books: showBooks, members: showMembers, loans: showLoans, overdue: showOverdue, borrow: showBorrow }[name];
+  fn().catch(e => { view.replaceChildren(); toast(e.message, false); });
+}
+
+/* ---------------- Books ---------------- */
+async function showBooks() {
+  const books = await api("/books/details");
+  const search = el("input", { placeholder: "Search title or author...", size: 32 });
+  const holder = el("div");
+  const draw = () => {
+    const q = search.value.trim().toLowerCase();
+    const rows = books.filter(b => (b.title + " " + (b.author || "")).toLowerCase().includes(q));
+    holder.replaceChildren(makeTable([
+      { label: "ID", get: r => r.book_id },
+      { label: "Title", get: r => r.title },
+      { label: "Author", get: r => r.author },
+      { label: "Category", get: r => r.category },
+      { label: "Publisher", get: r => r.publisher },
+      { label: "Year", get: r => r.publication_year },
+    ], rows));
+  };
+  search.addEventListener("input", draw);
+  view.replaceChildren(el("h2", { textContent: "Books (" + books.length + ")" }),
+    el("div", { className: "toolbar" }, search), holder);
+  draw();
+}
+
+/* ---------------- Members ---------------- */
+async function showMembers() {
+  const members = await api("/members");
+  const history = el("div", { className: "sub" });
+  const table = makeTable([
+    { label: "ID", get: r => r.member_id },
+    { label: "Name", get: r => r.member_name },
+    { label: "Email", get: r => r.email },
+    { label: "Phone", get: r => r.phone_no },
+    { label: "Joined", get: r => r.doj },
+    { label: "Status", get: r => badge(r.status) },
+    { label: "", get: r => el("button", { className: "small", textContent: "View history",
+        onclick: () => showHistory(r, history) }) },
+  ], members);
+  view.replaceChildren(el("h2", { textContent: "Members (" + members.length + ")" }), table, history);
+}
+
+async function showHistory(member, holder) {
+  try {
+    const rows = await api("/members/" + member.member_id + "/issues");
+    holder.replaceChildren(
+      el("h2", { textContent: "Borrowing history: " + member.member_name }),
+      makeTable([
+        { label: "Txn", get: r => r.transaction_id },
+        { label: "Book", get: r => r.title },
+        { label: "Issued", get: r => r.issue_date },
+        { label: "Due", get: r => r.due_date },
+        { label: "Returned", get: r => r.return_date },
+        { label: "Status", get: r => badge(r.status) },
+      ], rows));
+    holder.scrollIntoView({ behavior: "smooth" });
+  } catch (e) { toast(e.message, false); }
+}
+
+/* ---------------- Loans ---------------- */
+async function returnLoan(id) {
+  try {
+    await api("/issue/" + id + "/return", { method: "POST" });
+    toast("Transaction " + id + " marked as returned.");
+    setView(document.querySelector("#nav button.active").dataset.view);
+  } catch (e) { toast(e.message, false); }
+}
+
+async function showLoans() {
+  const [loans, books, members] = await Promise.all([api("/issue"), api("/books"), api("/members")]);
+  const bookName = Object.fromEntries(books.map(b => [b.book_id, b.title]));
+  const memberName = Object.fromEntries(members.map(m => [m.member_id, m.member_name]));
+  const filter = el("select", {}, ...["All", "Not returned", "Returned"].map(t => el("option", { textContent: t })));
+  const holder = el("div");
+  const draw = () => {
+    let rows = loans.slice().sort((a, b) => b.transaction_id - a.transaction_id);
+    if (filter.value === "Not returned") rows = rows.filter(r => !r.return_date);
+    if (filter.value === "Returned") rows = rows.filter(r => r.return_date);
+    holder.replaceChildren(makeTable([
+      { label: "Txn", get: r => r.transaction_id },
+      { label: "Book", get: r => bookName[r.book_id] || r.book_id },
+      { label: "Member", get: r => memberName[r.member_id] || r.member_id },
+      { label: "Issued", get: r => r.issue_date },
+      { label: "Due", get: r => r.due_date },
+      { label: "Returned", get: r => r.return_date },
+      { label: "Status", get: r => badge(r.status) },
+      { label: "", get: r => r.return_date ? "" :
+          el("button", { className: "small", textContent: "Return", onclick: () => returnLoan(r.transaction_id) }) },
+    ], rows));
+  };
+  filter.addEventListener("change", draw);
+  view.replaceChildren(el("h2", { textContent: "All Loans (" + loans.length + ")" }),
+    el("div", { className: "toolbar" }, el("span", { textContent: "Show:" }), filter), holder);
+  draw();
+}
+
+/* ---------------- Overdue ---------------- */
+async function showOverdue() {
+  const rows = await api("/issue/overdue");
+  view.replaceChildren(el("h2", { textContent: "Overdue books (" + rows.length + ")" }),
+    makeTable([
+      { label: "Txn", get: r => r.transaction_id },
+      { label: "Book", get: r => r.title },
+      { label: "Member", get: r => r.member_name },
+      { label: "Issued", get: r => r.issue_date },
+      { label: "Due", get: r => r.due_date },
+      { label: "", get: r => el("button", { className: "small", textContent: "Mark returned",
+          onclick: () => returnLoan(r.transaction_id) }) },
+    ], rows));
+}
+
+/* ---------------- Issue a book ---------------- */
+async function showBorrow() {
+  const [books, members, loans] = await Promise.all([api("/books"), api("/members"), api("/issue")]);
+  const out = new Set(loans.filter(l => !l.return_date).map(l => l.book_id));
+  const bookSel = el("select", {}, ...books.map(b =>
+    el("option", { value: b.book_id, textContent: b.title + (out.has(b.book_id) ? " (issued)" : ""), disabled: out.has(b.book_id) })));
+  const memSel = el("select", {}, ...members.filter(m => m.status === "Active").map(m =>
+    el("option", { value: m.member_id, textContent: m.member_name })));
+  const days = el("input", { type: "number", value: 14, min: 1, max: 90 });
+  const go = el("button", { className: "primary", textContent: "Issue book", onclick: async () => {
+    try {
+      const r = await api("/issue/borrow", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ book_id: Number(bookSel.value), member_id: Number(memSel.value), days: Number(days.value) }),
+      });
+      toast("Issued. Transaction " + r.transaction_id + ", due " + r.due_date + ".");
+      showBorrow().catch(e => toast(e.message, false));
+    } catch (e) { toast(e.message, false); }
+  } });
+  view.replaceChildren(el("h2", { textContent: "Issue a book" }),
+    el("div", { className: "card" },
+      el("label", { textContent: "Book" }), bookSel,
+      el("label", { textContent: "Member (active only)" }), memSel,
+      el("label", { textContent: "Loan period (days)" }), days,
+      el("p", { className: "muted", textContent: "Books already issued are greyed out." }), go));
+}
+
+document.getElementById("nav").addEventListener("click", e => {
+  const b = e.target.closest("button[data-view]");
+  if (b) setView(b.dataset.view);
+});
+setView("books");
+</script>
+</body>
+</html>

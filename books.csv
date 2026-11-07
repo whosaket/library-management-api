@@ -1,0 +1,26 @@
+book_id,title,author,category_id,publisher_id,publication_year
+1,The Alchemist,Paulo Coelho,1,2,1988
+2,The White Tiger,Aravind Adiga,1,1,2008
+3,The God of Small Things,Arundhati Roy,1,1,1997
+4,Midnight's Children,Salman Rushdie,1,1,1981
+5,The Guide,R.K. Narayan,1,6,1958
+6,A Brief History of Time,Stephen Hawking,2,1,1988
+7,Cosmos,Carl Sagan,2,1,1980
+8,The Selfish Gene,Richard Dawkins,2,5,1976
+9,Wings of Fire,A.P.J. Abdul Kalam,2,6,1999
+10,Surely You're Joking Mr. Feynman,Richard Feynman,2,1,1985
+11,Database System Concepts,Abraham Silberschatz,3,3,2010
+12,Introduction to Algorithms,Thomas H. Cormen,3,3,2009
+13,Learning SQL,Alan Beaulieu,3,4,2009
+14,Python Crash Course,Eric Matthes,3,4,2015
+15,Clean Code,Robert C. Martin,3,4,2008
+16,Operating System Concepts,Abraham Silberschatz,3,3,2012
+17,India After Gandhi,Ramachandra Guha,4,2,2007
+18,The Discovery of India,Jawaharlal Nehru,4,5,1946
+19,Sapiens,Yuval Noah Harari,4,1,2011
+20,The Argumentative Indian,Amartya Sen,4,1,2005
+21,Atomic Habits,James Clear,5,1,2018
+22,The Power of Now,Eckhart Tolle,5,2,1997
+23,Rich Dad Poor Dad,Robert Kiyosaki,5,1,1997
+24,Ikigai,Hector Garcia,5,1,2016
+25,Think and Grow Rich,Napoleon Hill,5,6,1937
